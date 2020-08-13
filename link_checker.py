@@ -58,7 +58,15 @@ def _parse_args():
 
 
 class _ProgressBar():
+    '''
+    Create a progress bar entity that can be updated asynchronously
+    '''
+
     def __init__(self, total_items):
+        '''
+        Initialise the number of items to iterate and print the progress bar
+        in the terminal
+        '''
         self.iteration = -1
         self.total = total_items
         self.update_progress_bar()
@@ -86,18 +94,20 @@ class _ProgressBar():
 
 async def _async_get_status_code(url, session, progress_bar=None):
     '''
-    Returns the status code of a given url and session
+    Returns the status code of a given url and a HTTP session
     This function is called asynchronously with other HTTP requests
 
     This function runs in a random amount of time given the DELAY specified
     '''
     # Add delay to avoid being blocked by website
     await asyncio.sleep(DELAY * random.random())
+
     async with session.get(url) as r:
         status_code = r.status
         if not is_valid_status(status_code):
             print(url, status_code)
 
+    if progress_bar:
         progress_bar.update_progress_bar()
 
     return (url, status_code)
@@ -129,6 +139,9 @@ def is_valid_status(status):
 
 
 async def _async_check_links(links, print_progress=False):
+    '''
+    Helper function for check_links() to make HTTP requests asynchronously
+    '''
     valid_links = []
     dead_links = []
 
