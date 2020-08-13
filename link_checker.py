@@ -22,19 +22,63 @@ import random
 import requests
 from time import sleep
 
-# Average amount of time between each HTTP request
+# Maximum amount of delay between each HTTP request.
+# The actual delay time is uniformly distributed from [0, DELAY] seconds
 DELAY = 0.5
 
 # User agent headers for HTTP requests
-HEADERS = {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) '
-           'AppleWebKit/537.11 (KHTML, like Gecko) '
-           'Chrome/23.0.1271.64 Safari/537.11',
-           'Accept': ('text/html,application/xhtml+xml,application/xml;'
-                      'q=0.9,*/*;q=0.8'),
-           'Accept-Charset': 'ISO-8859-1,utf-8;q=0.7,*;q=0.3',
-           'Accept-Encoding': 'none',
-           'Accept-Language': 'en-US,en;q=0.8',
-           'Connection': 'keep-alive'}
+HEADERS_LIST = [
+    {
+        'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) '
+        'AppleWebKit/537.11 (KHTML, like Gecko) '
+        'Chrome/23.0.1271.64 Safari/537.11',
+        'Accept': ('text/html,application/xhtml+xml,application/xml;'
+                   'q=0.9,*/*;q=0.8'),
+        'Accept-Charset': 'ISO-8859-1,utf-8;q=0.7,*;q=0.3',
+        'Accept-Encoding': 'none',
+        'Accept-Language': 'en-US,en;q=0.8',
+        'Connection': 'keep-alive'
+    },
+    {
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
+        'User-Agent': ('Mozilla/5.0 (X11; Linux x86_64) '
+                       'AppleWebKit/537.36 (KHTML, like Gecko) '
+                       'Chrome/84.0.4147.105 Safari/537.36'),
+        'Accept': ('text/html,application/xhtml+xml,application/xml;'
+                   'q=0.9,image/webp,image/apng,*/*;q=0.8,application'
+                   '/signed-exchange;v=b3;q=0.9'),
+        'Sec-Fetch-Site': 'none',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Dest': 'document',
+        'Accept-Language': 'en-GB,en;q=0.9,en-US;q=0.8',
+    },
+    {
+        'User-Agent': ('Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:79.0) '
+                       'Gecko/20100101 Firefox/79.0'),
+        'Accept': ('text/html,application/xhtml+xml,application/xml;'
+                   'q=0.9,image/webp,*/*;q=0.8'),
+        'Accept-Language': 'en-GB,en;q=0.7,en-US;q=0.3',
+        'DNT': '1',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
+    },
+    {
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
+        'User-Agent': ('Mozilla/5.0 (X11; Linux x86_64) '
+                       'AppleWebKit/537.36 (KHTML, like Gecko) '
+                       'Ubuntu Chromium/83.0.4103.61 '
+                       'Chrome/83.0.4103.61 Safari/537.36'),
+        'Accept': ('text/html,application/xhtml+xml,application/xml;'
+                   'q=0.9,image/webp,image/apng,*/*;'
+                   'q=0.8,application/signed-exchange;v=b3;q=0.9'),
+        'Sec-Fetch-Site': 'none',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-User': '?1',
+        'Sec-Fetch-Dest': 'document',
+        'Accept-Language': 'en-US,en;q=0.9,ja;q=0.8,my;q=0.7',
+    }]
 
 
 def _parse_args():
@@ -92,27 +136,6 @@ class _ProgressBar():
             print()
 
 
-async def _async_get_status_code(url, session, progress_bar=None):
-    '''
-    Returns the status code of a given url and a HTTP session
-    This function is called asynchronously with other HTTP requests
-
-    This function runs in a random amount of time given the DELAY specified
-    '''
-    # Add delay to avoid being blocked by website
-    await asyncio.sleep(DELAY * random.random())
-
-    async with session.get(url) as r:
-        status_code = r.status
-        if not is_valid_status(status_code):
-            print(url, status_code)
-
-    if progress_bar:
-        progress_bar.update_progress_bar()
-
-    return (url, status_code)
-
-
 def get_status_code(url):
     '''
     Returns the status code of a given url
@@ -121,7 +144,11 @@ def get_status_code(url):
     '''
     # Add delay to avoid being blocked by website
     sleep(DELAY * random.random())
-    with requests.get(url, headers=HEADERS) as r:
+
+    # Randomly select from a list of headers to pretend to be a real browser
+    headers = random.choice(HEADERS_LIST)
+
+    with requests.get(url, headers=headers) as r:
         status_code = r.status_code
         print(url, " ", status_code)
     return status_code
@@ -133,9 +160,33 @@ def is_valid_status(status):
     Return True otherwise.
 
     '''
-    if status >= 400:
-        return False
-    return True
+    if status >= 200 and status < 400:
+        return True
+    return False
+
+
+async def _async_get_status_code(url, session, progress_bar=None):
+    '''
+    Returns the status code of a given url and a HTTP session
+    This function is called asynchronously with other HTTP requests
+
+    This function runs in a random amount of time given the DELAY specified
+    '''
+    # Add delay to avoid being blocked by website
+    await asyncio.sleep(DELAY * random.random())
+
+    # Randomly select from a list of headers to pretend to be a real browser
+    headers = random.choice(HEADERS_LIST)
+
+    async with session.get(url, headers=headers) as r:
+        status_code = r.status
+        if not is_valid_status(status_code):
+            print(url, status_code)
+
+    if progress_bar:
+        progress_bar.update_progress_bar()
+
+    return (url, status_code)
 
 
 async def _async_check_links(links, print_progress=False):
@@ -153,7 +204,7 @@ async def _async_check_links(links, print_progress=False):
 
     # Create client session and make HTTP requests
     async with aiohttp.ClientSession() as session:
-        res = await asyncio.gather(
+        results = await asyncio.gather(
             *(_async_get_status_code(url, session, progress_bar)
               for url in links))
 
@@ -162,7 +213,7 @@ async def _async_check_links(links, print_progress=False):
             await session.close()
 
     # Split urls into valid and dead lists
-    for url, status in res:
+    for url, status in results:
         if is_valid_status(status):
             valid_links.append(url)
         else:
