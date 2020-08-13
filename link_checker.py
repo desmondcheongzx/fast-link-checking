@@ -24,12 +24,12 @@ import random
 import requests
 from time import sleep
 
-# Maximum amount of delay before async HTTP requests are made
+# Maximum amount of delay during each  HTTP request.
 # The actual delay time is uniformly distributed from [0, DELAY] seconds
-DELAY = 5
+DELAY = 1
 
 # Maximum number of connections to the server at one time
-MAX_CONNECTIONS = 10
+MAX_CONNECTIONS = 3
 
 # User agent headers for HTTP requests
 HEADERS_LIST = [
@@ -119,6 +119,7 @@ class _ProgressBar():
         self.iteration = -1
         self.total = total_items
         self.update_progress_bar()
+        self.conut = 0
 
     def update_progress_bar(self, decimals=1, length=25, fill='█'):
         '''
@@ -185,20 +186,24 @@ async def _async_get_status_code(url, session, progress_bar=None):
 
     This function runs in a random amount of time given the DELAY specified
     '''
-    # Add delay to avoid being blocked by website
-    await asyncio.sleep(DELAY * random.random())
-
     # Randomly select from a list of headers to pretend to be a real browser
     headers = random.choice(HEADERS_LIST)
 
     try:
         async with session.get(url, headers=headers) as r:
+            # Add delay to limit the rate of requests to the server
+            progress_bar.conut += 1
+            print(f'Entered {progress_bar.conut}')
+            await asyncio.sleep(DELAY * random.random())
+
             status_code = r.status
             if not is_valid_status(status_code):
                 print(url, status_code)
         if progress_bar:
             progress_bar.update_progress_bar()
 
+        progress_bar.conut -= 1
+        print(f'Exited. Remaining: {progress_bar.conut}')
         return (url, status_code)
 
     except Exception as e:
