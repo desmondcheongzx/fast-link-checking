@@ -28,6 +28,9 @@ from time import sleep
 # The actual delay time is uniformly distributed from [0, DELAY] seconds
 DELAY = 5
 
+# Maximum number of connections to the server at one time
+MAX_CONNECTIONS = 10
+
 # User agent headers for HTTP requests
 HEADERS_LIST = [
     {
@@ -217,7 +220,8 @@ async def _async_check_links(links, print_progress=False):
         progress_bar = _ProgressBar(n_links)
 
     # Create client session and make HTTP requests
-    conn = aiohttp.TCPConnector(limit=10, ttl_dns_cache=1500, ssl=False)
+    conn = aiohttp.TCPConnector(
+        limit=MAX_CONNECTIONS, ttl_dns_cache=1500, ssl=False)
     timeout = aiohttp.ClientTimeout(total=None)
 
     async with aiohttp.ClientSession(
