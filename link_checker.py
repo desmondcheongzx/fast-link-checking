@@ -2,11 +2,13 @@
 Module for checking if url links return HTTP Success or Client Error.
 
 Available functions:
-- check_links     : Given a list of urls, returns two lists of valid and
-                    dead links
-- get_status_code : Given a url, returns its status code
-- is_valid_status : Given a status code, return False if it is a Client Error,
-                    True otherwise
+- check_links           : Given a list of urls, returns two lists of valid and
+                          dead links
+- get_status_code       : Given a url, returns its status code
+- is_valid_status       : Given a status code, return False if it is a Client
+                          Error, True otherwise
+- confirm_links_checked : Checks that all urls are either valid or dead, and
+                          returns list of urls that weren't scrapped
 
 If running the module as the main program, it takes in the following args:
 --path_to_links      : file containing list of urls to check
@@ -248,12 +250,34 @@ async def _async_check_links(links, print_progress=False):
     return valid_links, dead_links
 
 
+def confirm_links_checked(links, valid_links, dead_links):
+    '''
+    Confirms that all links given to check_links() have been checked.
+    Otherwise, prints a list of links to rerun the script on.
+    '''
+    links = set(links)
+    valid_links = set(valid_links)
+    dead_links = set(dead_links)
+
+    set_difference = links - valid_links - dead_links
+    if not set_difference:
+        print('All links checked successfully.')
+        return True
+
+    print('WARNING. {len(set_difference)} urls not scrapped successfully.'
+          'Please rerun script on the following urls:')
+    print(json.dumps(list(set_difference)))
+
+    return False
+
+
 def check_links(links, print_progress=False):
     '''
     Given a list of urls, returns two lists of valid and dead links
     '''
     valid_links, dead_links = asyncio.run(
         _async_check_links(links, print_progress=print_progress))
+
     return valid_links, dead_links
 
 
@@ -273,8 +297,11 @@ if __name__ == '__main__':
         links = ast.literal_eval(links_file)
 
         valid_links, dead_links = check_links(links, print_progress=True)
-        print(json.dumps(valid_links),
-              json.dumps(dead_links))
+        print('Valid links: ', json.dumps(valid_links))
+        print('Dead links: ', json.dumps(dead_links))
+
+        # Confirm that all links have been scrapped
+        confirm_links_checked(links, valid_links, dead_links)
 
     if args.valid_links_output:
         with open(args.valid_links_output, 'w') as output:
