@@ -148,10 +148,18 @@ def get_status_code(url):
     # Randomly select from a list of headers to pretend to be a real browser
     headers = random.choice(HEADERS_LIST)
 
-    with requests.get(url, headers=headers) as r:
-        status_code = r.status_code
-        print(url, " ", status_code)
-    return status_code
+    try:
+        with requests.get(url, headers=headers) as r:
+            status_code = r.status_code
+            if not is_valid_status(status_code):
+                print(url, status_code)
+        return status_code
+    except Exception as e:
+        print(e)
+        print(f'{url} could not be scrapped, please rerun script on this url '
+              'or perform a manual check')
+
+    return None
 
 
 def is_valid_status(status):
@@ -178,15 +186,19 @@ async def _async_get_status_code(url, session, progress_bar=None):
     # Randomly select from a list of headers to pretend to be a real browser
     headers = random.choice(HEADERS_LIST)
 
-    async with session.get(url, headers=headers) as r:
-        status_code = r.status
-        if not is_valid_status(status_code):
-            print(url, status_code)
+    try:
+        async with session.get(url, headers=headers) as r:
+            status_code = r.status
+            if not is_valid_status(status_code):
+                print(url, status_code)
+        if progress_bar:
+            progress_bar.update_progress_bar()
 
-    if progress_bar:
-        progress_bar.update_progress_bar()
+        return (url, status_code)
 
-    return (url, status_code)
+    except Exception as e:
+        print(e)
+    return (url, None)
 
 
 async def _async_check_links(links, print_progress=False):
@@ -203,17 +215,31 @@ async def _async_check_links(links, print_progress=False):
         progress_bar = _ProgressBar(n_links)
 
     # Create client session and make HTTP requests
-    async with aiohttp.ClientSession() as session:
+    conn = aiohttp.TCPConnector(limit=15, ttl_dns_cache=300)
+
+    async with aiohttp.ClientSession(connector=conn) as session:
         results = await asyncio.gather(
             *(_async_get_status_code(url, session, progress_bar)
               for url in links))
 
         # Close client session
+        await asyncio.sleep(0.250)
         if session:
             await session.close()
 
     # Split urls into valid and dead lists
     for url, status in results:
+        # Fall back to synchronous checking if url failed
+        if not status:
+            print(f'{url} failed to be scrapped asynchronously, retrying...')
+            status = get_status_code(url)
+            if status:
+                print(f'{url} scrapped successfully')
+            else:
+                print(f'{url} could not be scrapped, please rerun script on '
+                      'this url or perform a manual check')
+                continue
+
         if is_valid_status(status):
             valid_links.append(url)
         else:
