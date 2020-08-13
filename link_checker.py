@@ -63,12 +63,12 @@ class _ProgressBar():
         self.total = total_items
         self.update_progress_bar()
 
-    def update_progress_bar(self, decimals=1, length=50, fill='█'):
+    def update_progress_bar(self, decimals=1, length=25, fill='█'):
         '''
-        Call in a loop to create terminal progress bar
+        Call in each iteration of a loop to update the terminal progress bar
 
         Args:
-            decimals    - Optional  : positive number of decimals in percent complete (Int)
+            decimals    - Optional  : decimals places in percent complete (Int)
             length      - Optional  : character length of bar (Int)
             fill        - Optional  : bar fill character (Str)
         '''
@@ -128,35 +128,6 @@ def is_valid_status(status):
     return True
 
 
-def check_links(links, print_progress=False):
-    '''
-    Given a list of urls, returns two lists of valid and dead links
-    '''
-    valid_links = []
-    dead_links = []
-
-    # Initialise progress bar
-    #n_links = len(links)
-    # if print_progress:
-    #    _update_progress_bar(0, n_links)
-
-    # Get status codes
-    for i, url in enumerate(links):
-        status_code = get_status_code(url)
-
-        # Split urls into valid and dead lists
-        if is_valid_status(status_code):
-            valid_links.append(url)
-        else:
-            print(f'{url} received status code {status_code}')
-            dead_links.append(url)
-
-    #    if print_progress:
-    #        _update_progress_bar(i+1, n_links)
-
-    return valid_links, dead_links
-
-
 async def _async_check_links(links, print_progress=False):
     valid_links = []
     dead_links = []
@@ -174,7 +145,8 @@ async def _async_check_links(links, print_progress=False):
               for url in links))
 
         # Close client session
-        await session.close()
+        if session:
+            await session.close()
 
     # Split urls into valid and dead lists
     for url, status in res:
@@ -184,6 +156,16 @@ async def _async_check_links(links, print_progress=False):
             dead_links.append(url)
 
     return valid_links, dead_links
+
+
+def check_links(links, print_progress=False):
+    '''
+    Given a list of urls, returns two lists of valid and dead links
+    '''
+    valid_links, dead_links = asyncio.run(
+        _async_check_links(links, print_progress=print_progress))
+    return valid_links, dead_links
+
 
 if __name__ == '__main__':
     '''
@@ -199,9 +181,8 @@ if __name__ == '__main__':
     if args.path_to_links:
         links_file = open(args.path_to_links).read()
         links = ast.literal_eval(links_file)
-        valid_links, dead_links = asyncio.run(
-            _async_check_links(links, print_progress=True))
-        #valid_links, dead_links = check_links(links, print_progress=True)
+
+        valid_links, dead_links = check_links(links, print_progress=True)
         print(json.dumps(valid_links),
               json.dumps(dead_links))
 
