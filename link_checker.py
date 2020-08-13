@@ -24,9 +24,9 @@ import random
 import requests
 from time import sleep
 
-# Maximum amount of delay between each HTTP request.
+# Maximum amount of delay before async HTTP requests are made
 # The actual delay time is uniformly distributed from [0, DELAY] seconds
-DELAY = 0.5
+DELAY = 5
 
 # User agent headers for HTTP requests
 HEADERS_LIST = [
@@ -217,7 +217,7 @@ async def _async_check_links(links, print_progress=False):
         progress_bar = _ProgressBar(n_links)
 
     # Create client session and make HTTP requests
-    conn = aiohttp.TCPConnector(limit=15, ttl_dns_cache=300, ssl=False)
+    conn = aiohttp.TCPConnector(limit=10, ttl_dns_cache=1500, ssl=False)
     timeout = aiohttp.ClientTimeout(total=None)
 
     async with aiohttp.ClientSession(
