@@ -13,16 +13,17 @@ If running the module as the main program, it takes in the following args:
 --valid_links_output : file to save list of valid links
 --dead_links_output  : file to save list of dead links
 '''
+import aiohttp
 import argparse
 import ast
-import aiohttp
+import asyncio
 import json
 import random
 import requests
 from time import sleep
 
 # Average amount of time between each HTTP request
-DELAY = 0.1
+DELAY = 0.5
 
 # User agent headers for HTTP requests
 HEADERS = {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) '
@@ -56,25 +57,50 @@ def _parse_args():
     return parser.parse_args()
 
 
-def _update_progress_bar(iteration, total, decimals=1, length=50, fill='█'):
-    '''
-    Call in a loop to create terminal progress bar
+class _ProgressBar():
+    def __init__(self, total_items):
+        self.iteration = -1
+        self.total = total_items
+        self.update_progress_bar()
 
-    Args:
-        iteration   - Required  : current iteration (Int)
-        total       - Required  : total iterations (Int)
-        decimals    - Optional  : positive number of decimals in percent complete (Int)
-        length      - Optional  : character length of bar (Int)
-        fill        - Optional  : bar fill character (Str)
+    def update_progress_bar(self, decimals=1, length=50, fill='█'):
+        '''
+        Call in a loop to create terminal progress bar
+
+        Args:
+            decimals    - Optional  : positive number of decimals in percent complete (Int)
+            length      - Optional  : character length of bar (Int)
+            fill        - Optional  : bar fill character (Str)
+        '''
+        self.iteration += 1
+        percent = ("{0:." + str(decimals) + "f}").format(100 *
+                                                         (self.iteration /
+                                                          float(self.total)))
+        filledLength = int(length * self.iteration // self.total)
+        bar = fill * filledLength + '-' * (length - filledLength)
+        print(f'\rProgress: |{bar}| {percent}% Complete', end='\r')
+        # Print New Line on Complete
+        if self.iteration == self.total:
+            print()
+
+
+async def _async_get_status_code(url, session, progress_bar=None):
     '''
-    percent = ("{0:." + str(decimals) + "f}").format(100 *
-                                                     (iteration / float(total)))
-    filledLength = int(length * iteration // total)
-    bar = fill * filledLength + '-' * (length - filledLength)
-    print(f'\rProgress: |{bar}| {percent}% Complete', end='\r')
-    # Print New Line on Complete
-    if iteration == total:
-        print()
+    Returns the status code of a given url and session
+    This function is called asynchronously with other HTTP requests
+
+    This function runs in a random amount of time given the DELAY specified
+    '''
+    # Add delay to avoid being blocked by website
+    await asyncio.sleep(DELAY * random.random())
+    async with session.get(url) as r:
+        status_code = r.status
+        if not is_valid_status(status_code):
+            print(url, status_code)
+
+        progress_bar.update_progress_bar()
+
+    return (url, status_code)
 
 
 def get_status_code(url):
@@ -84,8 +110,8 @@ def get_status_code(url):
     This function runs in a random amount of time given the DELAY specified
     '''
     # Add delay to avoid being blocked by website
-    sleep(0.5 * random.random())
-    with requests.head(url, headers=HEADERS, allow_redirects=True) as r:
+    sleep(DELAY * random.random())
+    with requests.get(url, headers=HEADERS) as r:
         status_code = r.status_code
         print(url, " ", status_code)
     return status_code
@@ -97,7 +123,7 @@ def is_valid_status(status):
     Return True otherwise.
 
     '''
-    if status >= 400 and status < 500:
+    if status >= 400:
         return False
     return True
 
@@ -108,29 +134,56 @@ def check_links(links, print_progress=False):
     '''
     valid_links = []
     dead_links = []
-    status_codes = []
 
     # Initialise progress bar
-    n_links = len(links)
-    if print_progress:
-        _update_progress_bar(0, n_links)
+    #n_links = len(links)
+    # if print_progress:
+    #    _update_progress_bar(0, n_links)
 
     # Get status codes
     for i, url in enumerate(links):
-        status_codes.append(get_status_code(url))
-        if print_progress:
-            _update_progress_bar(i+1, n_links)
+        status_code = get_status_code(url)
 
-    # Split urls into valid and dead lists
-    for link, status in zip(links, status_codes):
-        if is_valid_status(status):
-            valid_links.append(link)
+        # Split urls into valid and dead lists
+        if is_valid_status(status_code):
+            valid_links.append(url)
         else:
-            print(link)
-            dead_links.append(link)
+            print(f'{url} received status code {status_code}')
+            dead_links.append(url)
+
+    #    if print_progress:
+    #        _update_progress_bar(i+1, n_links)
 
     return valid_links, dead_links
 
+
+async def _async_check_links(links, print_progress=False):
+    valid_links = []
+    dead_links = []
+
+    # Initialise progress bar
+    n_links = len(links)
+    progress_bar = None
+    if print_progress:
+        progress_bar = _ProgressBar(n_links)
+
+    # Create client session and make HTTP requests
+    async with aiohttp.ClientSession() as session:
+        res = await asyncio.gather(
+            *(_async_get_status_code(url, session, progress_bar)
+              for url in links))
+
+        # Close client session
+        await session.close()
+
+    # Split urls into valid and dead lists
+    for url, status in res:
+        if is_valid_status(status):
+            valid_links.append(url)
+        else:
+            dead_links.append(url)
+
+    return valid_links, dead_links
 
 if __name__ == '__main__':
     '''
@@ -146,7 +199,9 @@ if __name__ == '__main__':
     if args.path_to_links:
         links_file = open(args.path_to_links).read()
         links = ast.literal_eval(links_file)
-        valid_links, dead_links = check_links(links, print_progress=True)
+        valid_links, dead_links = asyncio.run(
+            _async_check_links(links, print_progress=True))
+        #valid_links, dead_links = check_links(links, print_progress=True)
         print(json.dumps(valid_links),
               json.dumps(dead_links))
 
