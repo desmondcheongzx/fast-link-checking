@@ -24,7 +24,7 @@ import random
 import requests
 from time import sleep
 
-# Maximum amount of delay during each  HTTP request.
+# Maximum amount of delay between each HTTP request.
 # The actual delay time is uniformly distributed from [0, DELAY] seconds
 DELAY = 1
 
@@ -119,7 +119,6 @@ class _ProgressBar():
         self.iteration = -1
         self.total = total_items
         self.update_progress_bar()
-        self.conut = 0
 
     def update_progress_bar(self, decimals=1, length=25, fill='█'):
         '''
@@ -179,7 +178,7 @@ def is_valid_status(status):
     return False
 
 
-async def _async_get_status_code(url, session, progress_bar=None):
+async def _async_get_status_code(url, progress_bar=None):
     '''
     Returns the status code of a given url and a HTTP session
     This function is called asynchronously with other HTTP requests
@@ -188,23 +187,19 @@ async def _async_get_status_code(url, session, progress_bar=None):
     '''
     # Randomly select from a list of headers to pretend to be a real browser
     headers = random.choice(HEADERS_LIST)
+    conn = aiohttp.TCPConnector(
+        limit=MAX_CONNECTIONS, limit_per_host=MAX_CONNECTIONS)
 
     try:
-        async with session.get(url, headers=headers) as r:
-            # Add delay to limit the rate of requests to the server
-            progress_bar.conut += 1
-            print(f'Entered {progress_bar.conut}')
-            await asyncio.sleep(DELAY * random.random())
+        async with aiohttp.ClientSession(connector=conn) as session:
+            async with session.get(url, headers=headers) as r:
+                status_code = r.status
 
-            status_code = r.status
-
-            if not is_valid_status(status_code):
-                print(url, status_code)
+                if not is_valid_status(status_code):
+                    print(url, status_code)
         if progress_bar:
             progress_bar.update_progress_bar()
 
-        progress_bar.conut -= 1
-        print(f'Exited. Remaining: {progress_bar.conut}')
         return (url, status_code)
 
     except Exception as e:
@@ -226,18 +221,18 @@ async def _async_check_links(links, print_progress=False):
         progress_bar = _ProgressBar(n_links)
 
     # Create client session and make HTTP requests
-    conn = aiohttp.TCPConnector(
-        limit=MAX_CONNECTIONS, ttl_dns_cache=1500, ssl=False)
-    timeout = aiohttp.ClientTimeout(total=None)
 
-    async with aiohttp.ClientSession(
-            connector=conn, timeout=timeout) as session:
-        try:
-            results = await asyncio.gather(
-                *(_async_get_status_code(url, session, progress_bar)
-                  for url in links))
-        except Exception as e:
-            print(e)
+    try:
+        tasks = []
+        for url in links:
+            tasks.append(
+                asyncio.ensure_future(
+                    _async_get_status_code(url, progress_bar)))
+            await asyncio.sleep(DELAY * random.random())
+
+        results = await asyncio.gather(*tasks)
+    except Exception as e:
+        print(e)
 
     # Split urls into valid and dead lists
     for url, status in results:
@@ -288,12 +283,10 @@ def check_links(links, print_progress=False):
     '''
     Given a list of urls, returns two lists of valid and dead links
     '''
-    loop = asyncio.get_event_loop()
 
-    valid_links, dead_links = loop.run_until_complete(
+    valid_links, dead_links = asyncio.run(
         _async_check_links(links, print_progress=print_progress))
 
-    loop.close()
     return valid_links, dead_links
 
 
