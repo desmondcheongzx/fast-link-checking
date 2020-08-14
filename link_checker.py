@@ -29,7 +29,7 @@ from time import sleep
 DELAY = 1
 
 # Maximum number of connections to the server at one time
-MAX_CONNECTIONS = 3
+MAX_CONNECTIONS = 5
 
 # User agent headers for HTTP requests
 HEADERS_LIST = [
@@ -197,6 +197,7 @@ async def _async_get_status_code(url, session, progress_bar=None):
             await asyncio.sleep(DELAY * random.random())
 
             status_code = r.status
+
             if not is_valid_status(status_code):
                 print(url, status_code)
         if progress_bar:
