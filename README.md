@@ -56,17 +56,17 @@ $ python link_checker.py --path_to_links=links.json --use_head
 
 ## API
 
-### check_links(links, delay?, head?, print_progress?)
+### check_links(links, delay?, use_head?, print_progress?)
 
 __links__
 
 __delay__
 
-__head__
+__use_head__
 
 __print_progress__
 
-### get_status_code(url)
+### get_status_code(url, use_head)
 
 __url__
 
