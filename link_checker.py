@@ -14,6 +14,7 @@ If running the module as the main program, it takes in the following args:
 --path_to_links      : file containing list of urls to check
 --valid_links_output : file to save list of valid links
 --dead_links_output  : file to save list of dead links
+--delay              : delay between HTTP requests
 '''
 import aiohttp
 import argparse
@@ -103,6 +104,10 @@ def _parse_args():
                         type=str,
                         required=False,
                         help=('File to store valid links'))
+    parser.add_argument('--delay',
+                        type=int,
+                        required=False,
+                        help=('Delay between HTTP requests'))
     return parser.parse_args()
 
 
@@ -299,8 +304,12 @@ if __name__ == '__main__':
         --path_to_links      : file containing list of urls to check
         --valid_links_output : file to save list of valid links
         --dead_links_output  : file to save list of dead links
+        --delay              : delay between HTTP requests
     '''
     args = _parse_args()
+    if args.delay:
+        DELAY = args.delay
+
     if args.path_to_links:
         links_file = open(args.path_to_links).read()
         links = ast.literal_eval(links_file)
