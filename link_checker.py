@@ -15,6 +15,8 @@ If running the module as the main program, it takes in the following args:
 --valid_links_output : file to save list of valid links
 --dead_links_output  : file to save list of dead links
 --delay              : delay between HTTP requests
+--use_head           : specify whether HEAD requests should be used instead of
+                       GET requests
 '''
 import aiohttp
 import argparse
@@ -31,6 +33,9 @@ DELAY = 1
 
 # Maximum number of connections to the server at one time
 MAX_CONNECTIONS = 5
+
+# variable to specify whether to use HEAD requests instead of GET requests
+USE_HEAD = False
 
 # User agent headers for HTTP requests
 HEADERS_LIST = [
@@ -108,6 +113,10 @@ def _parse_args():
                         type=int,
                         required=False,
                         help=('Delay between HTTP requests'))
+    parser.add_argument('--use_head',
+                        required=False,
+                        action='store_true',
+                        help=('Whether to use HEAD requests'))
     return parser.parse_args()
 
 
@@ -146,7 +155,7 @@ class _ProgressBar():
             print()
 
 
-def get_status_code(url):
+def get_status_code(url, use_head=USE_HEAD):
     '''
     Returns the status code of a given url
 
@@ -159,10 +168,16 @@ def get_status_code(url):
     headers = random.choice(HEADERS_LIST)
 
     try:
-        with requests.get(url, headers=headers) as r:
-            status_code = r.status_code
-            if not is_valid_status(status_code):
-                print(url, status_code)
+        if use_head:
+            with requests.head(url, headers=headers) as r:
+                status_code = r.status_code
+                if not is_valid_status(status_code):
+                    print(url, status_code)
+        else:
+            with requests.get(url, headers=headers) as r:
+                status_code = r.status_code
+                if not is_valid_status(status_code):
+                    print(url, status_code)
         return status_code
     except Exception as e:
         print(e)
@@ -183,7 +198,7 @@ def is_valid_status(status):
     return False
 
 
-async def _async_get_status_code(url, progress_bar=None):
+async def _async_get_status_code(url, use_head=USE_HEAD, progress_bar=None):
     '''
     Returns the status code of a given url and a HTTP session
     This function is called asynchronously with other HTTP requests
@@ -197,11 +212,17 @@ async def _async_get_status_code(url, progress_bar=None):
 
     try:
         async with aiohttp.ClientSession(connector=conn) as session:
-            async with session.get(url, headers=headers) as r:
-                status_code = r.status
+            if use_head:
+                async with session.head(url, headers=headers) as r:
+                    status_code = r.status
+                    if not is_valid_status(status_code):
+                        print(url, status_code)
+            else:
+                async with session.get(url, headers=headers) as r:
+                    status_code = r.status
+                    if not is_valid_status(status_code):
+                        print(url, status_code)
 
-                if not is_valid_status(status_code):
-                    print(url, status_code)
         if progress_bar:
             progress_bar.update_progress_bar()
 
@@ -212,7 +233,8 @@ async def _async_get_status_code(url, progress_bar=None):
     return (url, None)
 
 
-async def _async_check_links(links, print_progress=False):
+async def _async_check_links(links, delay=DELAY, use_head=USE_HEAD,
+                             print_progress=False):
     '''
     Helper function for check_links() to make HTTP requests asynchronously
     '''
@@ -232,8 +254,9 @@ async def _async_check_links(links, print_progress=False):
         for url in links:
             tasks.append(
                 asyncio.ensure_future(
-                    _async_get_status_code(url, progress_bar)))
-            await asyncio.sleep(DELAY * random.random())
+                    _async_get_status_code(url, use_head=use_head,
+                                           progress_bar=progress_bar)))
+            await asyncio.sleep(delay * random.random())
 
         results = await asyncio.gather(*tasks)
     except Exception as e:
@@ -284,13 +307,14 @@ def confirm_links_checked(links, valid_links, dead_links):
     return False
 
 
-def check_links(links, print_progress=False):
+def check_links(links, delay=DELAY, use_head=USE_HEAD, print_progress=False):
     '''
     Given a list of urls, returns two lists of valid and dead links
     '''
 
     valid_links, dead_links = asyncio.run(
-        _async_check_links(links, print_progress=print_progress))
+        _async_check_links(links, delay=delay, use_head=use_head,
+                           print_progress=print_progress))
 
     return valid_links, dead_links
 
@@ -305,16 +329,22 @@ if __name__ == '__main__':
         --valid_links_output : file to save list of valid links
         --dead_links_output  : file to save list of dead links
         --delay              : delay between HTTP requests
+        --use_head           : specify whether HEAD requests should be used
+                               instead of GET requests
     '''
     args = _parse_args()
     if args.delay:
         DELAY = args.delay
 
+    if args.use_head:
+        USE_HEAD = True
+
     if args.path_to_links:
         links_file = open(args.path_to_links).read()
         links = ast.literal_eval(links_file)
 
-        valid_links, dead_links = check_links(links, print_progress=True)
+        valid_links, dead_links = check_links(
+            links, delay=DELAY, use_head=USE_HEAD, print_progress=True)
         print('Valid links: ', json.dumps(valid_links))
         print('Dead links: ', json.dumps(dead_links))
 
