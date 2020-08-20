@@ -66,7 +66,7 @@ __use_head__
 
 __print_progress__
 
-### get_status_code(url, use_head)
+### get_status_code(url, use_head?)
 
 __url__
 
