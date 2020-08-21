@@ -22,7 +22,7 @@ File containing list of urls to check. Urls should be given as a python-style/js
 $ python link_checker.py --path_to_links=links.json
 ```
 
-__`--valid_links_output <filename>`__
+__`--valid_links_output=<filename>`__
 
 File to save list of valid links. The list is jsonified before saving.
 
@@ -60,27 +60,61 @@ $ python link_checker.py --path_to_links=links.json --use_head
 
 __links__
 
+Type: `list<string>`
+
 __delay__
+
+Type: `number`
+
+Default: `1`
 
 __use_head__
 
+Type: `boolean`
+
+Default: `False`
+
 __print_progress__
+
+Type: `boolean`
+
+Default: `False`
+
+When set to True, displays a progress bar within a terminal.
 
 ### get_status_code(url, use_head?)
 
 __url__
 
+Type: `string`
+
+__use_head__
+
+Type: `boolean`
+
+Default: `False`
+
 ### is_valid_status(status)
 
+Return False if a given status code is a Client Error or Server Error. Return True otherwise.
+
 __status__
+
+Type: `number`
 
 ### confirm_links_checked(links, valid_links, dead_links)
 
 __links__
 
+Type: `list<string>`
+
 __valid_links__
 
+Type: `list<string>`
+
 __dead_links__
+
+Type: `list<string>`
 
 ## Failure to check links
 
