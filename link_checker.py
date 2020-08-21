@@ -155,14 +155,13 @@ class _ProgressBar():
             print()
 
 
-def get_status_code(url, use_head=USE_HEAD):
+def get_status_code(url, delay=DELAY, use_head=USE_HEAD):
     '''
-    Returns the status code of a given url
-
-    This function runs in a random amount of time given the DELAY specified
+    Returns the status code of a given url.
+    This function runs in a random amount of time given the delay specified
     '''
     # Add delay to avoid being blocked by website
-    sleep(DELAY * random.random())
+    sleep(delay * random.random())
 
     # Randomly select from a list of headers to pretend to be a real browser
     headers = random.choice(HEADERS_LIST)
