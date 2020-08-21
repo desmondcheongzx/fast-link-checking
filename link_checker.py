@@ -189,7 +189,7 @@ def get_status_code(url, use_head=USE_HEAD):
 
 def is_valid_status(status):
     '''
-    Return False if a given status code is a Client Error.
+    Return False if a given status code is a Client Error or Server Error.
     Return True otherwise.
 
     '''
