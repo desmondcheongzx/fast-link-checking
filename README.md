@@ -58,9 +58,13 @@ $ python link_checker.py --path_to_links=links.json --use_head
 
 ### check_links(links, delay?, use_head?, print_progress?)
 
+Given a list of urls, returns two lists of valid and dead links.
+
 __links__
 
 Type: `list<string>`
+
+List of urls to check.
 
 __delay__
 
@@ -68,11 +72,15 @@ Type: `number`
 
 Default: `1`
 
+The maximum delay between each HTTP request. The actual delay is uniformly and randomly distributed between `[0, delay]` for each request. The final rate of scraping would then be _~2/delay urls/second_.
+
 __use_head__
 
 Type: `boolean`
 
 Default: `False`
+
+Check urls via HEAD requests. This reduces the load on the server we are scraping from and reduces the risk of being blocked. By default, this option is turned off because not all servers correctly implement HEAD requests. So for example, we might receive status code 200 when making a GET request to a url, but 404 when making a HEAD request.
 
 __print_progress__
 
@@ -82,17 +90,31 @@ Default: `False`
 
 When set to True, displays a progress bar within a terminal.
 
-### get_status_code(url, use_head?)
+### get_status_code(url, delay?, use_head?)
+
+Returns the status code of a HTTP request to a given url. This function runs in a random amount of time given the delay specified.
 
 __url__
 
 Type: `string`
+
+Url to check.
+
+__delay__
+
+Type: `number`
+
+Default: `1`
+
+The maximum delay between each HTTP request. The actual delay is uniformly and randomly distributed between `[0, delay]` for each request. The final rate of scraping would then be _~2/delay urls/second_.
 
 __use_head__
 
 Type: `boolean`
 
 Default: `False`
+
+Check urls via HEAD requests. This reduces the load on the server we are scraping from and reduces the risk of being blocked. By default, this option is turned off because not all servers correctly implement HEAD requests. So for example, we might receive status code 200 when making a GET request to a url, but 404 when making a HEAD request.
 
 ### is_valid_status(status)
 
@@ -102,19 +124,29 @@ __status__
 
 Type: `number`
 
+Status code to check.
+
 ### confirm_links_checked(links, valid_links, dead_links)
+
+Takes in a list of urls, and two lists of those urls sorted into valid links and dead links. Checks that all links in the first list have been sorted into one of the lists and returns True if this is the case. Otherwise, this function prints a list of links to rerun the script on and returns False.
 
 __links__
 
 Type: `list<string>`
 
+Original list of urls to check.
+
 __valid_links__
 
 Type: `list<string>`
 
+List of urls in the original list that were valid.
+
 __dead_links__
 
 Type: `list<string>`
+
+List of urls in the original list that returned an error.
 
 ## Failure to check links
 
